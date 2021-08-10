@@ -129,12 +129,21 @@ for ms in msLIST:
 #fig, (ax0, ax1) = plt.subplots(2,1,figsize=(20,20))
 fig, ax = plt.subplots(figsize=(50,20))
 
+# Transform time type
 PSD_timels = list(map(lambda x: x.matplotlib_date,PSD_timels))
 PSD_avg_timels = list(map(lambda x: x.matplotlib_date,PSD_avg_timels))
 
+# Find mean and standard deviation
+
+mean = sum([np.nanmean(psd) for psd in PSD_ls])/len(PSD_ls)
+std = sum([np.nanstd(psd) for psd in PSD_ls])/len(PSD_ls)
+print(mean, std)
+
+# Set color gradient
 blues = matplotlib.cm.get_cmap("Blues")
 reds = matplotlib.cm.get_cmap("Reds")
 len_colors = 0.75/len(period_ls)
+
 #ax0.plot(PSD_timels,PSD_ls)
 #ax1.plot(PSD_avg_timels,PSD_avg_ls)
 for i, psd in enumerate(PSD_ls):

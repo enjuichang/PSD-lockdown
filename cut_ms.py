@@ -7,7 +7,6 @@ import re
 import datetime as dt
 import time
 
-start = time.time()
 #FileName = sys.argv[1]
 FileName = "BAC_20210701_20210801.mseed"
 
@@ -74,7 +73,3 @@ for i, evt in enumerate(evtlst):
 
           # Update start date
           start_date = end_date
-
-end = time.time()
-
-print(end-start)

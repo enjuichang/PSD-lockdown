@@ -1,204 +1,196 @@
 #!/usr/bin/python
 import os
+import pandas as pd
 import numpy as np
-from glob import glob
 import obspy
 from obspy.io.xseed import Parser
 from obspy.signal import PPSD
-# from matplotlib import *
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-import pandas as pd
-import time
+import sys
+import datetime as dt
+import re
 
 # Only in VSCode \\ change
-#from glob import glob
+from glob import glob
 
 # Load data \\ change
-#Station = sys.argv[1]
+# Station = sys.argv[1]
+Station = 'TAP'
 
-ms_dir = sorted(glob("ms_Data/*"))
+ms_dir = sorted(glob("ms_Data/HSN_DATA/*"))
 MainPath = './'
-RESP_Path = './'
-OutFigPath = './'
-DIREC = 'HLZ'
-subscript = 'tst'
+RESP_Path = './RESP'
+OutFigPath = './PNG'
+OutCSVPath = './CSV'
+Component = ['HHZ','HLZ','HNZ']
+location = '10'
+subscript = ''
 
+DataFile = str(Station)+'_2021'
+DataPath = os.path.join(MainPath,DataFile)
+# msLIST = open(DataPath).read().split("\n")[:-1]
 
+msLIST = ["ms_Data/CWB24_20210518.ms","ms_Data/CWB24_20210519.ms","ms_Data/CWB24_20210520.ms","ms_Data/CWB24_20210521.ms"]
+# msLIST = [ms for ms in ms_dir]
+period_ls = [1/9,1/11]
+# Run input periods
+# raw_period_ls = sys.argv[2].split(",")
+# period_ls = []
+# for per in raw_period_ls:
+#    raw = per.split("/")
+#    period_ls.append(float(raw[0])/float(raw[1]))
 
+### Create df and timestamp list
+# Input start/end/step
+extract_date = re.compile(r'20\d+')
+interval = 30
+evt_start = dt.datetime.strptime(extract_date.findall(msLIST[0])[0],"%Y%m%d")
+evt_end =  dt.datetime.strptime(extract_date.findall(msLIST[-1])[0],"%Y%m%d")
+step = dt.timedelta(minutes = interval)
 
-Station = "TPE" #\\ change
+# Storage for PSD
+left_freq = [np.nan for i in range(len(period_ls))]
+right_freq = [np.nan for i in range(len(period_ls))]
+PSD_ls = np.array([[] for i in range(len(period_ls))])
+time_ls = np.array([])
 
-msLIST = ["ms_Data/CWB24_20210517.ms","ms_Data/CWB24_20210518.ms","ms_Data/CWB24_20210519.ms","ms_Data/CWB24_20210520.ms","ms_Data/CWB24_20210521.ms"]
-#msLIST = [ms for ms in ms_dir]
+# Create df 
+PSD_timels = np.array([evt_start])
+time_count = evt_start
+while time_count < (evt_end+dt.timedelta(days=1)):
+    time_count += step
+    if time_count.time() != dt.datetime.strptime("23:00", "%H:%M").time() and time_count.time() != dt.datetime.strptime("23:30", "%H:%M").time():
+        PSD_timels = np.append(PSD_timels, time_count)
+df = pd.DataFrame(PSD_timels, columns = ["time"])
 
-# Select periods included
-#period_ls = [1/5,1/7,1/9,1/11,1/13]
-period_ls = [1/9]
-left_freq = [[] for i in range(len(period_ls))]
-right_freq = [[] for i in range(len(period_ls))]
+### Round datetime function
+def roundTime(time):
+    time += dt.timedelta(minutes=15)
+    time -= dt.timedelta(minutes=time.minute % 30,seconds=time.second,microseconds=time.microsecond)
+    return time
 
-PSD_ls = [[] for i in range(len(period_ls))]
-PSD_timels = []
-PSD_avg_timels = []
-PSD_avg_ls = [[] for i in range(len(period_ls))]
-
-start = time.time()
-
+### Iterate through every miniseed
 for ms in msLIST:
-
-    psd_time = [[] for i in range(len(period_ls))]
     st = obspy.Stream()
     st.clear()
 
-    # File form Concatenate.sh
-    DataFile = str(Station)+'_2021'
-    # RESP files
-    RESP_Name = 'RESP.TW.'+str(Station)+'.10.'+DIREC
-    RESP_File = os.path.join(RESP_Path,RESP_Name)
+    try:
+        # Read Data
+        DataPath = ms
+        WF = obspy.read(DataPath)
+        
+        # Interpolate missing data
+        WF.merge(method=1,fill_value='interpolate')
+        WF = WF.select(location = location)
+        
+        ### Find all channels, choose channel, and enable RESP
+        # Find all channels
+        ch_ls = []
+        for tr in WF:
+            ch_ls.append(tr.stats.channel)
+        
+        # Choose channel
+        if 'HHZ' in ch_ls: DIREC = 'HHZ'
+        elif 'HLZ' in ch_ls: DIREC = 'HLZ'
+        elif 'HNZ' in ch_ls: DIREC = 'HNZ'
+        WF = WF.select(channel = DIREC)
+        tr = WF[0]
+        print(tr)
 
-    # Create data path \\ change
-    #DataPath = os.path.join(MainPath,DataFile)
-    DataPath = ms
+        # Append channel to stream
+        st.append(tr)
+        
+        # Response file upload
+        RESP_Name = 'RESP.TW.'+str(Station)+'.'+location+'.'+DIREC
+        RESP_File = os.path.join(RESP_Path,RESP_Name)
+        # Parse the response file
+        # parser = Parser(RESP_File)
+        parser = Parser(RESP_Name)
 
-    # Read data
-    WF = obspy.read(DataPath)
-    # Interpolate missing data
-    WF.merge(method=1,fill_value='interpolate')
-    WF.sort(keys=['channel'])
+        ### Creat PPSD instance and join instance to df
+        # Create PPSD instance
+        ppsd = PPSD(tr.stats,metadata=parser,overlap=0.5)
+        # Assign db bin size
+        ppsd.db_bins = (-120,-80, 1.0)
+        # Add stream
+        ppsd.add(st)
 
-    # Choose channel
-    tr = WF[2]
-    print(tr)
-    # Append channel to stream
-    st.append(tr)
-    # Parse the response file \\ change
-    #parser = Parser(RESP_File)  
-    parser = Parser("RESP.TW.TAP.10.HLZ")
+        # add storage
+        psd_storage = [[] for i in range(len(period_ls))]
 
-    # Create PPSD instance
-    ppsd = PPSD(tr.stats,metadata=parser,overlap=0.5)
-    day_length = 23*ppsd.ppsd_length/3600/ppsd.overlap
-    # print(ppsd.psd_values)
-    ppsd.db_bins = (-110,-80, 1.0)
-    #print(ppsd.db_bins)
-    # Add stream
-    ppsd.add(st)
+        # Join instance to df
+        for i, period_cen in enumerate(period_ls):
+        
+            psd_values = ppsd.extract_psd_values(period_cen)
+            psd_storage[i]= psd_values[0]
+            left_freq[i] = 1/psd_values[3]
+            right_freq[i] = 1/psd_values[1]
+        PSD_ls = np.hstack((PSD_ls,np.array(psd_storage)))
+        
+        # Find timestamps
+        time = [i.datetime for i in ppsd.times_processed]
+        time_ls = np.concatenate((time_ls,time))
+    except:
+        continue
+### Postprocesses
+# Set frequency names
+freq_names = [f"{left_freq[i]:.1f} Hz - {right_freq[i]:.1f} Hz" for i in range(len(period_ls))]
+# Create time dataframe
+time_df = pd.DataFrame(time_ls, columns = ['time'])
+time_df = time_df.applymap(lambda x: roundTime(x))
+# Create psd dataframe joined by time
+psd = time_df.join(pd.DataFrame(PSD_ls.T, columns=freq_names))
+# Join output dataframe with psd dataframe
+df = df.join(psd.set_index('time'), on = 'time')
 
-
-
-    #     # Save figure name
-    #     OutFigName = Station+'_'+DIREC+'_PSD_'+subscript+'.png'
-    #     SavePath = os.path.join(OutFigPath,OutFigName)
-    #     # Return psd values at 0.1 period
-
-    # Deal with PSD values
-
-    for i, period_cen in enumerate(period_ls):
-        psd_values = ppsd.extract_psd_values(period_cen)
-        psd_time[i] = psd_values[0]
-        left_freq[i] = 1/psd_values[3]
-        right_freq[i] = 1/psd_values[1]
-        #print(timels,"\n")
-
-        # Deal with data gaps
-        if len(psd_time[i]) != day_length:
-            fill_na = day_length-len(psd_time[i])
-            for j in range(int(fill_na)): psd_time[i].append(np.nan)
-            PSD_avg_ls[i].append(np.nan)
-
-        # Calculate average PSD per day
-        else:
-            psd_time_avg = sum(psd_time[i])/len(psd_time[i])
-            PSD_avg_ls[i].append(psd_time_avg)
-    
-        PSD_ls[i] = np.concatenate((PSD_ls[i],psd_time[i]))
-    
-    # Deal with time
-    timels = ppsd.times_processed
-    
-    # Deal with time data gaps
-    if len(timels) != day_length:
-        fill_na = day_length-len(timels)
-        # Add 30 mins timestamps when no data
-        for j in range(int(fill_na)): timels.append(timels[-1]+23/day_length*3600*(j+1))
-    PSD_avg_timels.append(timels[0])
-    PSD_timels = np.concatenate((PSD_timels,timels))
-
-#fig, (ax0, ax1) = plt.subplots(2,1,figsize=(20,20))
+# Draw plot
 fig, ax = plt.subplots(figsize=(50,20))
 
-# Transform time type
-PSD_timels = list(map(lambda x: x.matplotlib_date,PSD_timels))
-PSD_avg_timels = list(map(lambda x: x.matplotlib_date,PSD_avg_timels))
-
 # Find mean and standard deviation
-
 mean = sum([np.nanmean(psd) for psd in PSD_ls])/len(PSD_ls)
 std = sum([np.nanstd(psd) for psd in PSD_ls])/len(PSD_ls)
-print(mean, std)
 
-# Set color gradient
+# Get color maps
 blues = matplotlib.cm.get_cmap("Blues")
 reds = matplotlib.cm.get_cmap("Reds")
 len_colors = 0.75/len(period_ls)
 
-#ax0.plot(PSD_timels,PSD_ls)
-#ax1.plot(PSD_avg_timels,PSD_avg_ls)
-for i, psd in enumerate(PSD_ls):
-    ax.plot(PSD_timels, psd, color = reds(1-len_colors*i), label = f"PSD ({left_freq[i]:.1f}-{right_freq[i]:.1f} Hz)")
-    ax.plot(PSD_avg_timels,PSD_avg_ls[i], color = blues(1-len_colors*i), label = f"Daily Avg ({left_freq[i]:.1f}-{right_freq[i]:.1f} Hz)")
+# Draw line for each frequency
+for i, psd in enumerate(freq_names):
+    ax.plot(df['time'], df[psd], color = reds(1-len_colors*i), label = f"PSD ({left_freq[i]:.1f}-{right_freq[i]:.1f} Hz)")
 
+# Draw line at lockdown
+ax.axvline(dt.datetime.strptime("20210515","%Y%m%d"), color = "red", label = "Taipei lockdown")
+ax.axvline(dt.datetime.strptime("20210519","%Y%m%d"), color = "blue", label = "Taiwan lockdown")
+
+# Format date
 # Major ticks every 6 months.
 fmt_half_month = mdates.DayLocator(interval=15)
-# ax0.xaxis.set_major_locator(fmt_half_month)
-# ax1.xaxis.set_major_locator(fmt_half_month)
 ax.xaxis.set_major_locator(fmt_half_month)
 
 # Minor ticks every month.
 fmt_three_days = mdates.DayLocator(interval = 3)
-# ax0.xaxis.set_minor_locator(fmt_three_days)
-# ax1.xaxis.set_minor_locator(fmt_three_days)
 ax.xaxis.set_minor_locator(fmt_three_days)
 
-# Text in the x axis will be displayed in 'YYYY-mm' format.
-# ax0.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-# ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-
-# ax0.xaxis.set_minor_formatter(mdates.DateFormatter('%d'))
-# ax1.xaxis.set_minor_formatter(mdates.DateFormatter('%d'))
-
 ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-
 ax.xaxis.set_minor_formatter(mdates.DateFormatter('%d'))
-ax.set_ylim([-110, -80])
+
+# Set y limit
+ax.set_ylim([mean-3*std, mean+3*std])
 
 plt.xlabel("Date",fontsize=18)
 plt.ylabel("Amplitude [$m^2/s^4/Hz$] [dB]",fontsize=18)
-
+plt.title(f"PSD of {DIREC} at {Station} in {left_freq[i]:.1f}-{right_freq[i]:.1f} Hz", fontsize=32)
 ax.legend()
-fig.show()
-fig.savefig("output.png")
+plt.show()
 
-output_ls = [PSD_timels]
-output_avg_ls = [PSD_avg_timels]
-output_name = ["time"]
-output_avg_name = ["Avg Time"]
+#Save figure name
+OutFigName = Station+'_'+DIREC+'_PSD_'+subscript+'.png'
+SavePath = os.path.join(OutFigPath,OutFigName)
+# fig.savefig(SavePath)
 
-for i in range(len(PSD_ls)):
-    output_ls.append(PSD_ls[i])
-    output_avg_ls.append(PSD_avg_ls[i])
-    output_name.append(f"{left_freq[i]:.1f}-{right_freq[i]:.1f} Hz")
-
-
-full = pd.DataFrame(output_ls).transpose()
-full.columns = output_name
-avg = pd.DataFrame(output_avg_ls).transpose()
-avg.columns = output_name
-
-print(full)
-print(avg)
-
-end = time.time()
-print(end-start)
+CSV_full_file = Station + "_full.csv"
+CSV_full_path = os.path.join(OutCSVPath,CSV_full_file)
+df.to_csv(CSV_full_path)

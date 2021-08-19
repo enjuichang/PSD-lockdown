@@ -1,0 +1,4 @@
+Data input to the program should contain miniseed (.mseed) files using day as the duration of each file. This is due to the fact that obspy cannot read miniseed files larger than 1 month.
+
+Input file format:
+Network_Station_YearMonthDay.ms (e.g., CWB24_HSN_20210401.ms)∂

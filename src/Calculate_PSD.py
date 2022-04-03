@@ -25,14 +25,14 @@ RESP_Path = './RESP'
 OutFigPath = './PNG'
 OutCSVPath = './CSV'
 Component = ['HHZ','HLZ','HNZ']
-#location = '10'
 subscript = ''
 
 DataFile = str(Station)+'_2021'
 DataPath = os.path.join(MainPath,DataFile)
 msLIST = open(DataPath).read().split("\n")[:-1]
 
-### Testing
+
+# Testing
 # msLIST = ["ms_Data/CWB24_20210518.ms","ms_Data/CWB24_20210519.ms","ms_Data/CWB24_20210520.ms","ms_Data/CWB24_20210521.ms"]
 # msLIST = [ms for ms in ms_dir]
 # period_ls = [1/9,1/11]
@@ -73,6 +73,24 @@ def roundTime(time):
     time -= dt.timedelta(minutes=time.minute % 30,seconds=time.second,microseconds=time.microsecond)
     return time
 
+### Find Channel
+def channelExtract(ch_ls):
+    channels = ["HHZ","HLZ","HNZ"]
+    locations = ["10","00"]
+    ch_loc = np.asarray([[i+j for j in locations] for i in channels]).flatten()
+    found_ch = set(ch_loc).intersection(set(ch_ls))
+    if found_ch: return found_ch.pop()
+    # Select preference
+    elif len(found_ch)>1: 
+        for ch in found_ch:
+            if ch[:3] == "HHZ": return ch
+            elif ch[:3] == "HLZ": ch_curr = ch
+            else: ch_curr = ch
+        return ch_curr
+    # If channel+location doesn't match
+    else: raise ValueError("Channel Not Found")
+
+
 ### Iterate through every miniseed
 for ms in msLIST:
     st = obspy.Stream()
@@ -91,23 +109,10 @@ for ms in msLIST:
         # Find all channels
         ch_ls = []
         for tr in WF: ch_ls.append(tr.stats.channel+tr.stats.location)
-        print(WF)
-        print(ch_ls)    
-        # Choose channel
-        if 'HHZ' in ch_ls: DIREC = 'HHZ'
-        elif 'HLZ' in ch_ls: DIREC = 'HLZ'
-        elif 'HNZ' in ch_ls: DIREC = 'HNZ'
-        WF = WF.select(channel = DIREC)
-
-        # Find all locations
-        loc_ls = []
-        for tr in WF: loc_ls.append(tr.stats.location)
-
-        # Choose location
-        if '10' in loc_ls: location = '10'
-        elif '00' in loc_ls: location = '00'
-        else: print("Location Error.")
-        
+        ch_loc = channelExtract(ch_ls)
+        location = ch_loc[3:]
+        DIREC = ch_loc[:3]
+        WF = WF.select(channel = DIREC)    
         WF = WF.select(location = location)
         tr = WF[0]
         print(tr)

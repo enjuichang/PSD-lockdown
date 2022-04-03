@@ -12,7 +12,7 @@ import datetime as dt
 MainPath = "./" 
 FileDir = "./CSV/"
 # FileName = sys.argv[1]
-FileName = "TCU_full.csv"
+FileName = "ALS_full.csv"
 OutFigPath = './PNG'
 OutCSVPath = './CSV'
 
@@ -95,12 +95,6 @@ print(output_df)
 # Descreptive Stats
 mean = np.nanmean(output_df["avg_1"])
 std = np.nanstd(output_df["avg_1"])
-
-
-# df.loc[(df['avg_7'] < mean-2*std) | (df['avg_7']>mean+2*std), "avg_7"] = np.nan
-# df.loc[(df['avg_3'] < mean-2*std) | (df['avg_3']>mean+2*std), "avg_3"] = np.nan
-# df.loc[(df['avg_1'] < mean-2*std) | (df['avg_1']>mean+2*std), "avg_1"] = np.nan
-#print(df['time'].dtype)
 
 # Set plot boundary
 ax.set_ylim([mean-3*std, mean+3*std])

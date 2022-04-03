@@ -108,6 +108,12 @@ For the visualizations, the `discontinuity.py`, `heatmap.py`, `mobility_corr.py`
 
 For data transformations, `merge_csv_tableau.py` creates two CSV files that join the CSVs of different stations into one large table. This is necessary to avoid connecting 40+ CSVs in the connection procedure when working in Tableau.
 
+# Notes
+
+## Script folder
+
+The script folder in repository refers to running repository using shell scripts. This was included as I ran the code mostly using a remote server. Especially when calculating the PSD values for 2 years, the computation time needed is on the basis of hours; therefore, enabling offline running on a remote server was implemented using the `nohup` command on a Linux server. All of the scripts can be conducted using only Python code described in the "Implementation" section above.
+
 # Structure
 
 ```

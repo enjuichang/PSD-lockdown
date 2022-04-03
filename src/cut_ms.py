@@ -6,9 +6,12 @@ import re
 import datetime as dt
 
 
+# Input & Testing
 FileName = sys.argv[1]
 #FileName = "NHDH_20210529_20210801.mseed"
 
+
+# RE parsing
 station = re.compile(r'([A-Z]+(\d+)?)')
 sta = station.findall(FileName)[0][0]
 
@@ -24,6 +27,8 @@ OutPath = "./ms_DATA/"
 
 evtlst = []
 
+
+### Define data range from event list
 def daterange(d1, d2):
     return (d1 + dt.timedelta(days=i) for i in range((d2 - d1).days + 2))
 

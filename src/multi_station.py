@@ -39,8 +39,7 @@ for i,sta in enumerate(staLIST):
     if i == 0: plotDF = pd.concat([pd.to_datetime(df['time']),df[avg]], axis=1, keys=['time',sta])
     else: plotDF = plotDF.join(pd.concat([pd.to_datetime(df['time']),df[avg]], axis=1, keys=['time',sta]).set_index('time'), on = 'time')
 
-# Mask date
-
+# Mask selected date
 start_date = dt.datetime.strptime(evtLIST[0],"%Y%m%d")
 end_date = dt.datetime.strptime(evtLIST[-1],"%Y%m%d")
 plotDF['time'] = pd.to_datetime(plotDF['time'])
@@ -48,7 +47,7 @@ plotDF['time'] = pd.to_datetime(plotDF['time'])
 mask = (plotDF['time'] > start_date) & (plotDF['time'] <= end_date)
 plotDF = plotDF.loc[mask]
 
-# Plot Station
+### Plot each station in selected station list
 blues = matplotlib.cm.get_cmap("Blues")
 len_colors = 0.75/len(staLIST)
 for i, sta in enumerate(staLIST):
@@ -83,9 +82,9 @@ plt.axvline(dt.datetime(2021,5,19), color = "blue", label = "Taiwan lockdown")
 
 plt.title(f"{StaName} PSD {avg} during {EvtName}",fontsize=25)
 plt.legend(bbox_to_anchor=(1.001, 1), loc='upper left')
-# plt.show()
+plt.show()
 
-# Save figure
+### Save figure
 OutFigName = 'PNG/'+StaName+'_PSD_avg_'+start_basedate+'base_'+EvtName+'.png'
 # SavePath = os.path.join(OutFigPath,OutFigName)
 fig.savefig(OutFigName)

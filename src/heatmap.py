@@ -51,10 +51,14 @@ plotDF['time'] = pd.to_datetime(plotDF['time'])
 
 mask = (plotDF['time'] > start_date) & (plotDF['time'] <= end_date)
 plotDF = plotDF.loc[mask].set_index("time")
+
+# Plot configuration
 ax = sns.heatmap(plotDF.T,vmin=-2, vmax=2,cmap="viridis", cbar= True,cbar_kws = {"orientation":"horizontal"})
 matplotlib.rcParams['ytick.labelsize'] = 30
 matplotlib.rcParams['xtick.labelsize'] = 20
-# Major ticks every 30 day.
+
+
+# Major ticks every month.
 fmt_month = mdates.MonthLocator(interval=1)
 ax.xaxis.set_major_locator(fmt_month)
 

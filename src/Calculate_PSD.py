@@ -32,9 +32,11 @@ DataFile = str(Station)+'_2021'
 DataPath = os.path.join(MainPath,DataFile)
 msLIST = open(DataPath).read().split("\n")[:-1]
 
+### Testing
 # msLIST = ["ms_Data/CWB24_20210518.ms","ms_Data/CWB24_20210519.ms","ms_Data/CWB24_20210520.ms","ms_Data/CWB24_20210521.ms"]
 # msLIST = [ms for ms in ms_dir]
 # period_ls = [1/9,1/11]
+
 # Run input periods
 raw_period_ls = sys.argv[2].split(",")
 period_ls = []
